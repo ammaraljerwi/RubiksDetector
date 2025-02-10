@@ -32,15 +32,8 @@ LABELS = ['green', 'blue', 'orange', 'red', 'yellow', 'white']
 def pred_from_contours(img: np.ndarray, model: nn.Module) -> list:
     # get bounding boxes of contours
     detected = img.copy()
-    
-    blurred = cv2.GaussianBlur(detected, (5, 5), 0)
 
-    thresholded = cv2.threshold(cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY), 25, 255, cv2.THRESH_BINARY)[1]
-
-    cannied = cv2.Canny(thresholded, 50, 200)
-
-
-    contours, heirarchy = cv2.findContours(cannied, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    contours, heirarchy = get_contours(detected)
 
     if len(contours) == 0:
         return detected
@@ -138,7 +131,7 @@ def detect_color(img: np.ndarray, color_range: list, color_space=cv2.COLOR_BGR2H
     mask = cv2.inRange(image, lower, upper)
     mask = cv2.erode(mask, None, iterations=4)
     mask = cv2.dilate(mask, None, iterations=4)
-    
+
     detected = cv2.bitwise_and(original, original, mask=mask)
 
     return detected
@@ -146,20 +139,12 @@ def detect_color(img: np.ndarray, color_range: list, color_space=cv2.COLOR_BGR2H
 def filter_color(img: np.ndarray, color_range: list, color_space=cv2.COLOR_BGR2HSV) -> np.ndarray:
     detected = detect_color(img, color_range, color_space)
 
-    # detect a closed contour, then bitwise and to keep only closed contours
-    blurred = cv2.GaussianBlur(detected, (5, 5), 0)
-
-    thresholded = cv2.threshold(cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY), 25, 255, cv2.THRESH_BINARY)[1]
-
-    cannied = cv2.Canny(thresholded, 50, 200)
-
-
-    contours, heirarchy = cv2.findContours(cannied, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    contours, heirarchy = get_contours(detected)
 
     if len(contours) == 0:
         return detected
     
-    vis = np.zeros_like(thresholded)
+    vis = np.zeros((detected.shape[0], detected.shape[1]), dtype=np.uint8)
 
     for i in range(len(heirarchy[0])):
         r = cv2.boundingRect(contours[i])
@@ -176,29 +161,13 @@ def filter_color(img: np.ndarray, color_range: list, color_space=cv2.COLOR_BGR2H
 def get_contours(img: np.ndarray, thresholds=[50,200], approx_poly=False) -> np.ndarray:
     blurred = cv2.GaussianBlur(img, (5, 5), 0)
 
-    thresholded = cv2.threshold(cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY), thresholds[0], thresholds[1], cv2.THRESH_BINARY)[1]
+    thresholded = cv2.threshold(cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY), 25, 255, cv2.THRESH_BINARY)[1]
 
     canny = cv2.Canny(thresholded, thresholds[0], thresholds[1])
 
     contours, heirarchy = cv2.findContours(canny, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
 
-    vis = np.zeros_like(thresholded)
-
-    for i in range(len(heirarchy[0])):
-        r = cv2.boundingRect(contours[i])
-        if heirarchy[0][i][2] > -1:
-            # cv2.drawContours(vis, contours, i, (255, 255, 255), -1)
-            if approx_poly:
-                epsilon = 0.1 * cv2.arcLength(contours[i], True)
-                # print(epsilon)
-                # epsilon = 50
-                approx = cv2.approxPolyDP(contours[i], epsilon, True)
-                # print(len(approx))
-                cv2.drawContours(vis, [approx], -1, (255, 255, 255), 3)
-            else:
-                cv2.drawContours(vis, contours, i, (255, 255, 255), -1)
-
-    return vis
+    return contours, heirarchy
     
 def visualize_masks(img: np.ndarray, masks: np.ndarray) -> None:
     for i in range(len(masks)):
@@ -235,9 +204,9 @@ def main():
 
     cv2.imshow('final', final_image)
     
-    conts = get_contours(final_image, approx_poly=True)
+    # conts = get_contours(final_image, approx_poly=True)
     
-    cv2.imshow('contours', conts)
+    # cv2.imshow('contours', conts)
 
     pred = pred_from_contours(final_image, model)
 
