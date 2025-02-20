@@ -33,27 +33,36 @@ def pred_from_contours(img: np.ndarray, model: nn.Module) -> list:
     # get bounding boxes of contours
     detected = img.copy()
 
-    contours, heirarchy = get_contours(detected)
+    contours = get_contours(detected, return_all=False)
 
+    yolo_labels = []
     if len(contours) == 0:
         return detected
-
-    for i in range(len(heirarchy[0])):
-        if heirarchy[0][i][2] > -1:
-            r = cv2.boundingRect(contours[i])
-            print(cv2.contourArea(contours[i]))
-            print(r)
-            cropped_im = detected[r[1]:r[1] + r[3], r[0]:r[0] + r[2]]
-            resized = cv2.resize(cropped_im, (250, 250))
-            resized = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-            resized = torch.from_numpy(resized).float()
-            resized = resized.unsqueeze(0)
-            pred = model(resized)
-            pred = F.softmax(pred, dim=1)
-            pred = torch.argmax(pred, dim=1)
-            pred = pred.item()
-            cv2.putText(detected, LABELS[pred], (r[0], r[1]), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-            cv2.rectangle(detected, (r[0], r[1]), (r[0] + r[2], r[1] + r[3]), (255, 255, 255), 3)
+    
+    for i in range(len(contours)):
+        r = cv2.boundingRect(contours[i])
+        x, y, w, h = r
+        cropped_im = detected[y: y+h, x: x+w]
+        resized = cv2.resize(cropped_im, (250, 250))
+        resized = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+        resized = torch.from_numpy(resized).float()
+        resized = resized.unsqueeze(0)
+        pred = model(resized)
+        pred = F.softmax(pred, dim=1)
+        pred = torch.argmax(pred, dim=1)
+        pred = pred.item()
+        cv2.putText(detected, LABELS[pred], (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        cv2.rectangle(detected, (x, y), (x + w, y + h), (255, 255, 255), 3)
+        center_x = x + (w // 2)
+        center_y = y + (h // 2)
+        norm_x = center_x / 250
+        norm_y = center_y / 250
+        norm_w = w / 250
+        norm_h = h / 250
+        yolo_labels.append((pred, norm_x, norm_y, norm_w, norm_h))
+    
+    print(yolo_labels)
+    
     return detected
 # data dir
 data_dir = Path('data')
@@ -158,7 +167,7 @@ def filter_color(img: np.ndarray, color_range: list, color_space=cv2.COLOR_BGR2H
 
     return new_vis
 
-def get_contours(img: np.ndarray, thresholds=[50,200], approx_poly=False) -> np.ndarray:
+def get_contours(img: np.ndarray, thresholds=[50,200], return_all=True, approx_poly=False) -> np.ndarray:
     blurred = cv2.GaussianBlur(img, (5, 5), 0)
 
     thresholded = cv2.threshold(cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY), 25, 255, cv2.THRESH_BINARY)[1]
@@ -167,7 +176,21 @@ def get_contours(img: np.ndarray, thresholds=[50,200], approx_poly=False) -> np.
 
     contours, heirarchy = cv2.findContours(canny, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
 
-    return contours, heirarchy
+    if return_all:
+        return (contours, heirarchy)
+    else:
+        kept_contours = []
+        for i in range(len(heirarchy[0])):
+            if heirarchy[0][i][2] > -1:
+                kept_contours.append(contours[i])
+        kept_contours = sorted(kept_contours, key=cv2.contourArea, reverse=True)
+        if len(kept_contours) > 9:
+            kept_contours = kept_contours[:9]
+            
+        return kept_contours
+
+        
+
     
 def visualize_masks(img: np.ndarray, masks: np.ndarray) -> None:
     for i in range(len(masks)):
@@ -179,11 +202,14 @@ def visualize_masks(img: np.ndarray, masks: np.ndarray) -> None:
         if cv2.waitKey(0) == ord('q'):
             cv2.destroyAllWindows()
 def main():
-    im, results, masks = load_image(7683, detection=True, segmentation=True)
+    im, results, masks = load_image(7728, detection=True, segmentation=True)
     # print(masks)
-    cropped = crop_image(im, results, flipped=True)
+    cropped = crop_image(im, results, flipped=False)
     
-    # cropped = cv2.imread('data/simss.png')
+    cropped = cv2.imread('simulated_cube_dataset/images/train/0313.jpg')
+    x1, y1, x2, y2 = [350, 276, 594, 491]
+    cropped = cropped[y1:y2, x1:x2]
+    # cropped = cv2.imread('data/sim2.png')
     cropped = cv2.resize(cropped, (500, 500))
 
     cv2.imshow('cropped', cropped)
