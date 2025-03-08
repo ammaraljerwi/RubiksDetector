@@ -1,0 +1,12 @@
+path: ../drive/MyDrive/isolated_cube_dataset/
+train: ./train/images
+val: ./val/images
+test: ./test/images
+
+names:
+    0: 'green'
+    1: 'blue'
+    2: 'orange'
+    3: 'red'
+    4: 'yellow'
+    5: 'white'

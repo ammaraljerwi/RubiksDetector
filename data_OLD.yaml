@@ -1,0 +1,7 @@
+path: /content/drive/MyDrive/simulated_cube_dataset/
+train: /train/images
+val: /val/images
+test: /test/images
+
+names:
+    0: rubik's cube
