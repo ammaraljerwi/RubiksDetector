@@ -26,7 +26,7 @@ class DummyModel(nn.Module):
     
 model = DummyModel()
 
-model.load_state_dict(torch.load('new_model_weights.pth', weights_only=True, map_location=torch.device('cpu')))
+model.load_state_dict(torch.load('models/color_labeler.pth', weights_only=True, map_location=torch.device('cpu')))
 LABELS = ['green', 'blue', 'orange', 'red', 'yellow', 'white']
 
 def pred_from_contours(img: np.ndarray, model: nn.Module) -> list:
@@ -189,7 +189,12 @@ def get_contours(img: np.ndarray, thresholds=[50,200], return_all=True, approx_p
             
         return kept_contours
 
-        
+def visualize_contours(img: np.ndarray, contours: np.ndarray) -> None:
+    vis = img.copy()
+
+    cv2.drawContours(vis, contours, -1, (255, 255, 255), 2)
+
+    return vis
 
     
 def visualize_masks(img: np.ndarray, masks: np.ndarray) -> None:
@@ -230,8 +235,13 @@ def main():
 
     cv2.imshow('final', final_image)
     
-    # conts = get_contours(final_image, approx_poly=True)
+    conts = get_contours(final_image, return_all=False, approx_poly=True)
+    binary = np.zeros_like(final_image)
+    cv2.drawContours(binary, conts, -1, (255, 255, 255), -1)
+    cv2.imshow('binary', binary)
     
+    # vis = visualize_contours(final_image, conts[0])
+    # cv2.imshow('contours', vis)
     # cv2.imshow('contours', conts)
 
     pred = pred_from_contours(final_image, model)
