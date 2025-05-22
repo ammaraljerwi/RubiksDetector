@@ -1,4 +1,6 @@
 models/color_labeler.pth
+new_data
+new_data/*
 data
 detections
 annotations
